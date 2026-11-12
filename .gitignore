@@ -1,0 +1,11 @@
+# Secrets
+.env
+
+# Generated media (audio, video, images) is large and not source code
+files/*
+!files/.gitkeep
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
+.vscode/

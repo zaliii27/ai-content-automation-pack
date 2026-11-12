@@ -1,0 +1,22 @@
+# The doorman between the public tunnel and n8n.
+#
+# The tunnel gives this laptop a public address. Without this file, anyone who
+# found that address could see the n8n login page. With it, the ONLY thing
+# reachable from the internet is the Telegram trigger's webhook path
+# (/webhook/<id>/webhook). n8n also checks Telegram's secret token on that path.
+# The editor, the API and every other webhook stay local-only.
+
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	@telegram path_regexp ^/webhook(-test)?/[A-Za-z0-9-]+/webhook$
+	handle @telegram {
+		reverse_proxy n8n:5678
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

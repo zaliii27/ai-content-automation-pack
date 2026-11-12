@@ -1,0 +1,500 @@
+{
+  "id": "SprintRouter0000",
+  "name": "00 Telegram Router (Content Studio Bot)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 00 · Telegram Router\nOne Telegram bot can only talk to **one** trigger, so every message enters here and is passed on:\n\n- `/ad ...` → **01 Ad Brief to Script Pack**\n- a video, `/render`, `/demo` → **02 Clips to Finished Ad**\n- a button tap, `/report` → **03 Approve, Publish and Report**\n- `/start`, `/help` → help message\n\nIf `OWNER_CHAT_ID` is set in `.env`, messages from anyone else are ignored.",
+        "height": 300,
+        "width": 560,
+        "color": 4
+      },
+      "id": "9b4d4a58-cff5-50c7-821e-ce72f954320c",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "81a8c14f-f82a-5695-9d1c-294d0b1e1598",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "webhookId": "0408087b-6552-5bac-bc14-91fdb4813489"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "835d9379-8a1a-545e-832e-a1b564d50d22",
+              "name": "cfg.llm_base_url",
+              "type": "string",
+              "value": "={{ $env.LLM_BASE_URL || '' }}"
+            },
+            {
+              "id": "3080f3a8-af73-5247-b11a-585305b6d6be",
+              "name": "cfg.llm_model",
+              "type": "string",
+              "value": "={{ $env.LLM_MODEL || '' }}"
+            },
+            {
+              "id": "27ee3003-6ccc-5451-80df-454a66ece068",
+              "name": "cfg.llm_reasoning_effort",
+              "type": "string",
+              "value": "={{ $env.LLM_REASONING_EFFORT || '' }}"
+            },
+            {
+              "id": "4cee347b-75a9-5dd5-b681-b9b3f3aad93d",
+              "name": "cfg.worker_url",
+              "type": "string",
+              "value": "={{ $env.MEDIA_WORKER_URL || '' }}"
+            },
+            {
+              "id": "7e988c7b-8557-55d3-8b35-f669bd63fe88",
+              "name": "cfg.sheet_id",
+              "type": "string",
+              "value": "={{ $env.SHEET_ID || '' }}"
+            },
+            {
+              "id": "e3144251-aaae-53e6-babc-60aa2236eb9e",
+              "name": "cfg.owner_chat_id",
+              "type": "string",
+              "value": "={{ $env.OWNER_CHAT_ID || '' }}"
+            },
+            {
+              "id": "dfa22ac8-dcc2-504a-b5b1-7b3bb08b6524",
+              "name": "cfg.publish_chat_id",
+              "type": "string",
+              "value": "={{ $env.PUBLISH_CHAT_ID || '' }}"
+            },
+            {
+              "id": "b8828368-9d5c-5bac-bc7c-373c83bb4802",
+              "name": "cfg.brand_name",
+              "type": "string",
+              "value": "={{ $env.BRAND_NAME || '' }}"
+            },
+            {
+              "id": "8e6c758c-6822-5a17-8218-2ae30dea6ec1",
+              "name": "cfg.brand_voice",
+              "type": "string",
+              "value": "={{ $env.BRAND_VOICE || '' }}"
+            },
+            {
+              "id": "a9be8192-be3f-5132-866f-d8b15a170d26",
+              "name": "cfg.brand_cta",
+              "type": "string",
+              "value": "={{ $env.BRAND_CTA || '' }}"
+            },
+            {
+              "id": "d41b2375-2f70-5ee8-ad2e-c48f58e01bcc",
+              "name": "cfg.brand_color",
+              "type": "string",
+              "value": "={{ $env.BRAND_COLOR || '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c352f97e-75ce-5bb6-847b-174be5c9a157",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        400
+      ],
+      "notes": "All settings come from the .env file. Change them there, then run start.ps1."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns one raw Telegram update into a small, tidy item and decides where it goes.\nconst raw = $input.first().json;\nconst cfg = raw.cfg || {};\nconst u = (raw.body && raw.headers) ? raw.body : raw;\n\nconst owner = String(cfg.owner_chat_id || '').trim();\nconst msg = u.message || null;\nconst cb = u.callback_query || null;\nconst chatId = String((cb ? cb.message?.chat?.id : msg?.chat?.id) ?? '');\nconst fromName = (cb ? cb.from : msg?.from)?.first_name || 'there';\nconst text = String(msg?.text || msg?.caption || '').trim();\nconst doc = msg?.document;\nconst video = msg?.video || (doc && /^video\\//.test(doc.mime_type || '') ? doc : null);\nconst command = ((text.match(/^\\/([a-z]+)/i) || [])[1] || '').toLowerCase();\n\nlet route = 'unknown';\nif (!chatId) route = 'ignore';\nelse if (owner && chatId !== owner) route = 'blocked';      // only the owner may use the bot\nelse if (cb) route = 'action';\nelse if (video) route = 'clip';\nelse if (command === 'start' || command === 'help') route = 'help';\nelse if (command === 'ad') route = 'ad';\nelse if (command === 'render' || command === 'demo') route = 'clip';\nelse if (command === 'report') route = 'action';\n\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst help_text = [\n  `👋 Hi ${esc(fromName)}! I'm the AI Content Studio for <b>${esc(cfg.brand_name)}</b>.`,\n  '',\n  '<b>1. Get an ad script</b>',\n  '/ad Product | key benefit | audience | language',\n  '<i>Example (tap to copy):</i>',\n  '<code>/ad Vanilla Oat Cold Brew | smooth, never bitter, 120mg caffeine | students and remote workers | English</code>',\n  '',\n  '<b>2. Send me your clips</b>',\n  'Make the 3 scenes in Google Flow, then send the 3 videos here in order. I add captions and an end card and send back the finished ad.',\n  'No clips yet? <code>/demo</code> builds it with placeholder clips.',\n  '',\n  '<b>3. Approve</b>',\n  'Tap ✅ Approve and I give you the caption and hashtags, ready to post.',\n  '',\n  '/report shows this week\\'s numbers.',\n  '',\n  `Your chat ID: <code>${esc(chatId)}</code>`,\n  owner ? '' : '⚙️ <i>Setup tip: put this chat ID in the .env file as OWNER_CHAT_ID so only you can use this bot.</i>',\n].join('\\n').trim();\n\nreturn [{ json: {\n  route,\n  chat_id: chatId,\n  from_name: fromName,\n  text,\n  command,\n  args: text.replace(/^\\/[a-z]+(@\\w+)?\\s*/i, ''),\n  message_id: msg?.message_id || cb?.message?.message_id || 0,\n  video: video ? {\n    file_id: video.file_id,\n    file_name: video.file_name || 'clip.mp4',\n    file_size: video.file_size || 0,\n  } : null,\n  callback: cb ? { id: cb.id, data: cb.data || '' } : null,\n  help_text,\n} }];"
+      },
+      "id": "ea19443d-05cb-572a-b44b-f03ebe72cc61",
+      "name": "Route Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "help",
+                    "id": "c3f7d7bd-d4bd-511f-89f1-8d00b69031e7",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ad",
+                    "id": "74e07a93-f336-5c4b-870a-769d789f6091",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ad"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "clip",
+                    "id": "d0783519-0fb9-5f3c-91f1-9e7b45853e3a",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clip"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "action",
+                    "id": "bf84badb-6589-563d-a5f8-19a06e6e205c",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "action"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "unknown",
+                    "id": "a3816b61-b7c5-544b-a848-a5eda2067f3a",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "unknown"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ef1bbb20-365c-579a-b163-8af846335330",
+      "name": "Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.help_text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "9508b816-095c-56c2-9da6-9522ff2dc892",
+      "name": "Send Help",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SprintAdBrief001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "e150be51-b942-5d47-8dd7-e1da830d6518",
+      "name": "Run 01 Ad Brief",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SprintRender0002"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "9c2a9c5a-3cb2-5948-befa-198b98b4e536",
+      "name": "Run 02 Finish Ad",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SprintPublish003"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "dbe1fbc3-1cb3-5620-be56-c9f7454b8d21",
+      "name": "Run 03 Approve and Report",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=🤔 I didn't catch that. Send /help to see what I can do.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "984d7968-5086-5db7-bef2-3bba63f493b0",
+      "name": "Send Hint",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        720
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Route Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Update": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Send Help",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run 01 Ad Brief",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run 02 Finish Ad",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run 03 Approve and Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Hint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [],
+  "active": false
+}

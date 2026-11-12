@@ -1,0 +1,1034 @@
+{
+  "id": "SprintRender0002",
+  "name": "02 Clips to Finished Ad",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 02 · Clips to Finished Ad\n**Problem:** AI video tools give you raw 8-second clips. Turning them into a post-ready ad (right size, captions, end card) is slow, repetitive editing.\n\n**What happens**\n1. The owner sends the clips to the Telegram bot (or `/demo` for placeholder clips).\n2. Each clip is stored by the **media-worker** service. After the 3rd clip the ad is rendered:\n   1080x1920 vertical, captions from the content calendar burned in, branded end card.\n3. The finished video comes back on Telegram with **Approve / Redo** buttons.\n4. The calendar row is set to `READY`.\n\nn8n cannot run ffmpeg itself, so it calls a small custom service over HTTP.",
+        "height": 360,
+        "width": 640,
+        "color": 4
+      },
+      "id": "77760473-0737-5050-8f20-8664837626b0",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "bb5b5090-6ac4-589a-ac12-71690e18fbb3",
+      "name": "From Telegram Router",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "render-ad",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "e89fbe41-c10e-5af5-861e-acdaf3788b63",
+      "name": "API: POST render-ad",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        520
+      ],
+      "webhookId": "bba4db46-9f29-55ad-ac1a-0a7200a89e5f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "166834d6-56ce-5c36-9433-a2d8c907c745",
+              "name": "cfg.llm_base_url",
+              "type": "string",
+              "value": "={{ $env.LLM_BASE_URL || '' }}"
+            },
+            {
+              "id": "d126837a-9af5-570c-9cc7-acc0e64fc12a",
+              "name": "cfg.llm_model",
+              "type": "string",
+              "value": "={{ $env.LLM_MODEL || '' }}"
+            },
+            {
+              "id": "9e0e1528-1826-5ba1-aa53-ae9f31e88f58",
+              "name": "cfg.llm_reasoning_effort",
+              "type": "string",
+              "value": "={{ $env.LLM_REASONING_EFFORT || '' }}"
+            },
+            {
+              "id": "b25f6fc3-2339-50b4-aa57-4480527f6a1a",
+              "name": "cfg.worker_url",
+              "type": "string",
+              "value": "={{ $env.MEDIA_WORKER_URL || '' }}"
+            },
+            {
+              "id": "645483d2-ece5-5444-90c1-db4f173bd66b",
+              "name": "cfg.sheet_id",
+              "type": "string",
+              "value": "={{ $env.SHEET_ID || '' }}"
+            },
+            {
+              "id": "9c1a9f94-e74a-5c8a-a833-16e782ae9992",
+              "name": "cfg.owner_chat_id",
+              "type": "string",
+              "value": "={{ $env.OWNER_CHAT_ID || '' }}"
+            },
+            {
+              "id": "a849555f-f99d-5cd6-91ee-84baefdbc14e",
+              "name": "cfg.publish_chat_id",
+              "type": "string",
+              "value": "={{ $env.PUBLISH_CHAT_ID || '' }}"
+            },
+            {
+              "id": "0f4e466f-6866-51f5-b3e8-c8845027c230",
+              "name": "cfg.brand_name",
+              "type": "string",
+              "value": "={{ $env.BRAND_NAME || '' }}"
+            },
+            {
+              "id": "7f98287b-942c-5fcb-9c81-593b130af810",
+              "name": "cfg.brand_voice",
+              "type": "string",
+              "value": "={{ $env.BRAND_VOICE || '' }}"
+            },
+            {
+              "id": "b7297c2a-af2a-503b-b703-1c40d75b6b3d",
+              "name": "cfg.brand_cta",
+              "type": "string",
+              "value": "={{ $env.BRAND_CTA || '' }}"
+            },
+            {
+              "id": "d4d359b5-a90d-5648-be37-0c657a45b925",
+              "name": "cfg.brand_color",
+              "type": "string",
+              "value": "={{ $env.BRAND_COLOR || '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "32e44e78-2373-5f98-b4fe-377f9ed80c02",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        420
+      ],
+      "notes": "All settings come from the .env file. Change them there, then run start.ps1."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Works out what the owner wants: store a clip, render now, or run the demo.\nconst input = $input.first().json;\nconst cfg = input.cfg || {};\nconst fromApi = input.body !== undefined && input.headers !== undefined;\nconst src = fromApi ? (input.body || {}) : input;\n\n// An ad code such as AD-7KQ2M can be given in the video caption or after the command.\nconst idText = fromApi ? String(src.content_id || '') : String(src.text || '');\nconst idMatch = idText.toUpperCase().match(/AD-[A-Z0-9]{3,12}/);\n\nlet mode = 'render';\nif (fromApi) mode = ['clip', 'demo', 'render'].includes(src.mode) ? src.mode : 'render';\nelse if (src.video) mode = 'clip';\nelse if (src.command === 'demo') mode = 'demo';\n\nconst video = src.video || null;\nreturn [{ json: {\n  mode,\n  from_api: fromApi,\n  wanted_id: idMatch ? idMatch[0] : '',\n  chat_id: String(src.chat_id || cfg.owner_chat_id || ''),\n  message_id: src.message_id || 0,\n  video,\n  too_big: !!(video && video.file_size > 20 * 1024 * 1024),   // Telegram bots can download 20 MB at most\n  overrides: fromApi ? { texts: src.texts, brand: src.brand, cta: src.cta } : {},\n  cfg,\n} }];"
+      },
+      "id": "f8c8c681-d213-594c-8b48-7f22c82b408a",
+      "name": "Resolve Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "options": {}
+      },
+      "id": "95a05e95-83bc-547c-84c1-0ff50d3abd1d",
+      "name": "Read Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        420
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Finds the ad in the content calendar: the code the owner gave, or else the newest ad still in progress.\nconst job = $('Resolve Job').first().json;\nconst cfg = job.cfg || {};\nconst rows = $input.all().map(i => i.json).filter(r => r && r.content_id && r.status !== undefined);\nconst status = r => String(r.status || '').toUpperCase();\n\nlet row = null;\nif (job.wanted_id) {\n  row = rows.find(r => String(r.content_id).toUpperCase() === job.wanted_id) || null;\n} else {\n  row = [...rows].reverse().find(r => ['SCRIPTED', 'CLIPS', 'REDO', 'READY'].includes(status(r))) || null;\n}\nif (!row && !(job.from_api && job.wanted_id)) {\n  throw new Error(job.wanted_id\n    ? `I can't find ${job.wanted_id} in the content calendar. Check the code, or send /ad to start a new one.`\n    : 'There is no ad waiting for clips. Send /ad first to get a script.');\n}\n\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst o = job.overrides || {};\nconst content_id = String(row?.content_id || job.wanted_id).toUpperCase();\nconst texts = Array.isArray(o.texts) && o.texts.length\n  ? o.texts.map(String)\n  : [row?.scene1_text, row?.scene2_text, row?.scene3_text].map(t => String(t || ''));\nconst caption = String(row?.caption || '');\nconst hashtags = String(row?.hashtags || '');\n\nreturn [{ json: {\n  route: job.too_big ? 'too_big' : job.mode,\n  content_id,\n  chat_id: job.chat_id,\n  message_id: job.message_id,\n  video: job.video,\n  product: String(row?.product || ''),\n  caption_html: esc((caption + '\\n' + hashtags).trim().slice(0, 700)),\n  worker_url: String(cfg.worker_url || '').replace(/\\/+$/, ''),\n  clips_needed: 3,\n  render_request: {\n    content_id,\n    texts,\n    brand: o.brand || cfg.brand_name,\n    cta: o.cta || cfg.brand_cta,\n    brand_color: cfg.brand_color,\n  },\n} }];"
+      },
+      "id": "b979a501-b7bb-54fd-857c-410760c8c8b2",
+      "name": "Pick Ad",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        420
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "too_big",
+                    "id": "0ebfd63b-0388-5453-9518-7390e1a55ffe",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "too_big"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "clip",
+                    "id": "14d17269-e246-5463-b085-bdcdd22f166b",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clip"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "demo",
+                    "id": "832aef4c-c89e-5624-a978-f41fa967e3e2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "demo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "render",
+                    "id": "a41ecc30-27e3-5484-8552-ea132e9c27e3",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "render"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7e136140-7580-5d34-b5a2-888315190c04",
+      "name": "What To Do",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1100,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=📦 That clip is over 20 MB, which is the most a Telegram bot can download.\nSend it as a normal video (not as a file) so Telegram compresses it, or put the file in <code>files/inbox/{{ $json.content_id }}/</code> on the laptop and send <code>/render {{ $json.content_id }}</code>.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "11f43a40-1451-5df2-bb15-01e61645efc9",
+      "name": "Tell: Clip Too Big",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        140
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.video.file_id }}",
+        "download": true
+      },
+      "id": "f3852dab-cb67-57bb-9d03-67da06503233",
+      "name": "Download Clip",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        320
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pick Ad').first().json.worker_url }}/clips/{{ $('Pick Ad').first().json.content_id }}",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "order",
+              "value": "={{ $('Pick Ad').first().json.message_id }}"
+            }
+          ]
+        }
+      },
+      "id": "f6525617-6bb9-51b7-8025-2c81895f0aab",
+      "name": "Store Clip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1580,
+        320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c2f98d89-12e5-557d-b3c0-3973529bf0af",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": "={{ $('Pick Ad').first().json.clips_needed }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "19dae46e-dbd0-5633-8e15-df5f127ba111",
+      "name": "Enough Clips?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Pick Ad').first().json.chat_id }}",
+        "text": "=📥 Clip {{ $json.count }} of {{ $('Pick Ad').first().json.clips_needed }} saved for <code>{{ $('Pick Ad').first().json.content_id }}</code>. Send the next one.\nWant to finish with fewer clips? Send <code>/render {{ $('Pick Ad').first().json.content_id }}</code>.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "de676d12-eefe-50b1-8af9-fb5014ee8401",
+      "name": "Tell: Clip Saved",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2040,
+        200
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.worker_url }}/sample-clips/{{ $json.content_id }}?n=3&seconds=4",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "129e55fd-7234-5daf-bf5d-5d660782af15",
+      "name": "Make Sample Clips",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1580,
+        520
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Pick Ad').first().json.chat_id }}",
+        "text": "=🎞 Building <code>{{ $('Pick Ad').first().json.content_id }}</code>: resizing, captions, end card. About a minute.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "9c35ae56-61ea-559e-a46c-14f230e8405b",
+      "name": "Tell: Rendering",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2040,
+        420
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Pick Ad').first().json.worker_url }}/render",
+        "options": {
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Pick Ad').first().json.render_request) }}"
+      },
+      "id": "9e1ad97c-955f-55f2-93a5-7454ab8b16de",
+      "name": "Render Ad",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2260,
+        420
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Pick Ad').first().json.worker_url }}{{ $json.download_path }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "1e6f6f98-58d5-566f-b966-632805a5c6f6",
+      "name": "Fetch Finished Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2480,
+        420
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5dfcb8e7-997f-5f55-bc3b-2d9a473e2148",
+              "leftValue": "={{ $('Pick Ad').first().json.chat_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "b06c6d54-1a9a-5822-869b-e44affda6126",
+      "name": "Has Chat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2700,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "={{ $('Pick Ad').first().json.chat_id }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "✅ Approve",
+                    "additionalFields": {
+                      "callback_data": "=approve:{{ $('Pick Ad').first().json.content_id }}"
+                    }
+                  },
+                  {
+                    "text": "🔁 Redo",
+                    "additionalFields": {
+                      "callback_data": "=redo:{{ $('Pick Ad').first().json.content_id }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "caption": "=🎬 <b>{{ $('Pick Ad').first().json.content_id }}</b> · {{ $('Render Ad').first().json.duration_s }}s preview\n\n{{ $('Pick Ad').first().json.caption_html }}\n\nHappy with it? Tap Approve. Want different clips? Tap Redo.",
+          "parse_mode": "HTML",
+          "fileName": "={{ $('Pick Ad').first().json.content_id }}.mp4"
+        }
+      },
+      "id": "5a4410e0-6d18-5efb-bd75-212de7864aa8",
+      "name": "Send Preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2920,
+        340
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_id": "={{ $('Pick Ad').first().json.content_id }}",
+            "status": "READY",
+            "video_file": "={{ $('Render Ad').first().json.file }}"
+          },
+          "matchingColumns": [
+            "content_id"
+          ],
+          "schema": [
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "video_file",
+              "displayName": "video_file",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "5b58f4e5-1542-5b28-8113-363c5bc38e6f",
+      "name": "Update Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3140,
+        420
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ad = $('Pick Ad').first().json;\nconst r = $('Render Ad').first().json;\nreturn [{ json: {\n  ok: true,\n  content_id: ad.content_id,\n  status: 'READY',\n  video_file: r.file,\n  duration_s: r.duration_s,\n  size_mb: r.size_mb,\n  clips_used: r.clips_used,\n  captions_used: r.captions_used,\n} }];"
+      },
+      "id": "3bdb8aa8-c4eb-5923-a98a-826af7102f5f",
+      "name": "Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || $('Config').first().json.chat_id || $('Config').first().json.body?.chat_id || $('Config').first().json.cfg.owner_chat_id }}",
+        "text": "=⚠️ {{ (() => { const raw = String($json.error?.message || $json.error?.description || $json.error || $json.message || 'Something went wrong.'); const m = raw.match(/detail[\\\\\"]*:[\\\\\"]*([^\"\\\\]+)/); return (m ? m[1] : raw).replace(/\\s*\\[line \\d+\\]\\s*$/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 600); })() }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "415325ea-d89b-57d6-bc6f-af0d7d17dbc4",
+      "name": "Tell Owner It Failed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1800,
+        760
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "From Telegram Router": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API: POST render-ad": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Resolve Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Job": {
+      "main": [
+        [
+          {
+            "node": "Read Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Calendar": {
+      "main": [
+        [
+          {
+            "node": "Pick Ad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Ad": {
+      "main": [
+        [
+          {
+            "node": "What To Do",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "What To Do": {
+      "main": [
+        [
+          {
+            "node": "Tell: Clip Too Big",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Clip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Make Sample Clips",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell: Rendering",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Clip": {
+      "main": [
+        [
+          {
+            "node": "Store Clip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Clip": {
+      "main": [
+        [
+          {
+            "node": "Enough Clips?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough Clips?": {
+      "main": [
+        [
+          {
+            "node": "Tell: Rendering",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell: Clip Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Sample Clips": {
+      "main": [
+        [
+          {
+            "node": "Tell: Rendering",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tell: Rendering": {
+      "main": [
+        [
+          {
+            "node": "Render Ad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Ad": {
+      "main": [
+        [
+          {
+            "node": "Fetch Finished Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Finished Video": {
+      "main": [
+        [
+          {
+            "node": "Has Chat?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Chat?": {
+      "main": [
+        [
+          {
+            "node": "Send Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Preview": {
+      "main": [
+        [
+          {
+            "node": "Update Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Calendar": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [],
+  "active": false
+}

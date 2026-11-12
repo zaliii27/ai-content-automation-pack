@@ -1,0 +1,1126 @@
+{
+  "id": "SprintPublish003",
+  "name": "03 Approve, Publish and Report",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 03 · Approve, Publish and Report\n**Problem:** content gets made but nobody tracks what was approved or posted, and the owner has no weekly overview.\n\n**What happens**\n- **Approve button:** the calendar row becomes `APPROVED`. If a channel is configured (`PUBLISH_CHAT_ID`) the video is posted there and the row becomes `POSTED`. Otherwise the owner gets a copy-paste **posting kit** (caption and hashtags).\n- **Redo button:** the stored clips are deleted and the row becomes `REDO`, ready for new clips.\n- **Every Monday 9:00** (or `/report`): a summary of the last 7 days goes to the owner on Telegram.\n\nNothing is ever posted without a human tapping Approve.",
+        "height": 360,
+        "width": 640,
+        "color": 4
+      },
+      "id": "4f155936-0dac-5af1-bf44-86df18ef9222",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "f13919ec-8db9-5e80-9cae-09657089c181",
+      "name": "From Telegram Router",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "9f9796ed-6a2b-5409-a6b0-06e1914fec09",
+      "name": "Every Monday 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ad-action",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "68e7ec9e-3557-5fa2-a47a-eff605b69519",
+      "name": "API: POST ad-action",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        660
+      ],
+      "webhookId": "3fffa65f-bbcd-559b-91b4-93da84e57254"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0b2bda6d-2b41-5667-a890-23237100f2d3",
+              "name": "cfg.llm_base_url",
+              "type": "string",
+              "value": "={{ $env.LLM_BASE_URL || '' }}"
+            },
+            {
+              "id": "4e0b4d15-974b-568e-be3b-46f3dc475c9c",
+              "name": "cfg.llm_model",
+              "type": "string",
+              "value": "={{ $env.LLM_MODEL || '' }}"
+            },
+            {
+              "id": "5797f15e-da6f-562a-97a7-879a3892d31e",
+              "name": "cfg.llm_reasoning_effort",
+              "type": "string",
+              "value": "={{ $env.LLM_REASONING_EFFORT || '' }}"
+            },
+            {
+              "id": "bc46ac3c-f2b9-5865-9711-46bda4f2d838",
+              "name": "cfg.worker_url",
+              "type": "string",
+              "value": "={{ $env.MEDIA_WORKER_URL || '' }}"
+            },
+            {
+              "id": "b2cb36b4-7f41-5327-903d-bf6a48a8feee",
+              "name": "cfg.sheet_id",
+              "type": "string",
+              "value": "={{ $env.SHEET_ID || '' }}"
+            },
+            {
+              "id": "35dabb9f-45f2-5b23-9e9c-56e8e8743f40",
+              "name": "cfg.owner_chat_id",
+              "type": "string",
+              "value": "={{ $env.OWNER_CHAT_ID || '' }}"
+            },
+            {
+              "id": "853f8a0a-1cf4-570c-9a48-1f5aeb3917be",
+              "name": "cfg.publish_chat_id",
+              "type": "string",
+              "value": "={{ $env.PUBLISH_CHAT_ID || '' }}"
+            },
+            {
+              "id": "16bcf1c2-812a-5e0f-b994-d019e5f604cd",
+              "name": "cfg.brand_name",
+              "type": "string",
+              "value": "={{ $env.BRAND_NAME || '' }}"
+            },
+            {
+              "id": "1dcffcf4-0e21-591e-89d4-508ea09497d9",
+              "name": "cfg.brand_voice",
+              "type": "string",
+              "value": "={{ $env.BRAND_VOICE || '' }}"
+            },
+            {
+              "id": "8982528a-d5c1-539b-994d-eeba48782cfa",
+              "name": "cfg.brand_cta",
+              "type": "string",
+              "value": "={{ $env.BRAND_CTA || '' }}"
+            },
+            {
+              "id": "195650ca-2690-51c1-a55b-460623ef8c27",
+              "name": "cfg.brand_color",
+              "type": "string",
+              "value": "={{ $env.BRAND_COLOR || '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "52f2bd39-c405-5e84-9e5b-ed0ba2c1d561",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        480
+      ],
+      "notes": "All settings come from the .env file. Change them there, then run start.ps1."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Three ways in: a button tap from Telegram, the weekly timer, or the API.\nconst input = $input.first().json;\nconst cfg = input.cfg || {};\nconst fromApi = input.body !== undefined && input.headers !== undefined;\n\nlet action = 'report';                       // the weekly timer lands here\nlet content_id = '';\nlet chat_id = String(cfg.owner_chat_id || '');\nlet callback_id = '';\n\nif (fromApi) {\n  action = String(input.body?.action || 'report').toLowerCase();\n  content_id = String(input.body?.content_id || '').toUpperCase();\n  chat_id = String(input.body?.chat_id || chat_id);\n} else if (input.callback) {\n  const [a, id = ''] = String(input.callback.data).split(':');\n  action = a.toLowerCase();\n  content_id = id.toUpperCase();\n  chat_id = String(input.chat_id);\n  callback_id = input.callback.id;\n} else if (input.route) {\n  chat_id = String(input.chat_id);           // the owner typed /report\n}\n\nif (!['approve', 'redo', 'report'].includes(action)) throw new Error(`I don't know the action \"${action}\".`);\nif (action !== 'report' && !/^AD-[A-Z0-9]{3,12}$/.test(content_id)) throw new Error('That button has no valid ad code.');\n\nreturn [{ json: { action, content_id, chat_id, callback_id, cfg } }];"
+      },
+      "id": "d1b14c90-fcc0-5450-a0e2-fb9a8efe416d",
+      "name": "Resolve Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        480
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a0594d8f-60e1-5049-9a7c-b4adbb8b67d1",
+              "leftValue": "={{ $json.callback_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "72fa48c1-7589-52f5-b0fd-66fe2391c7d7",
+      "name": "Button Tap?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $json.callback_id }}",
+        "additionalFields": {
+          "text": "={{ $json.action === 'approve' ? 'Approved ✅' : 'OK, starting over 🔁' }}"
+        }
+      },
+      "id": "4c52a597-d09f-51c0-a568-3a39431e12a3",
+      "name": "Answer Button Tap",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        380
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "options": {}
+      },
+      "id": "c6c66f1a-ffd9-5f17-9df0-1eec5525a6a0",
+      "name": "Read Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        480
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Looks the ad up in the calendar, or builds the weekly report.\nconst act = $('Resolve Action').first().json;\nconst cfg = act.cfg || {};\nconst rows = $input.all().map(i => i.json).filter(r => r && r.content_id && r.status !== undefined);\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst status = r => String(r.status || '').toUpperCase();\nconst base = {\n  action: act.action,\n  chat_id: act.chat_id,\n  publish_chat_id: String(cfg.publish_chat_id || ''),\n  worker_url: String(cfg.worker_url || '').replace(/\\/+$/, ''),\n  stamp: $now.toFormat('yyyy-MM-dd HH:mm'),\n};\n\nif (act.action === 'report') {\n  const parseDate = value => {\n    const s = String(value || '').trim();\n    for (const f of ['yyyy-MM-dd HH:mm', 'yyyy-MM-dd HH:mm:ss', 'M/d/yyyy H:mm:ss', 'M/d/yyyy H:mm']) {\n      const d = DateTime.fromFormat(s, f, { zone: 'Asia/Manila' });\n      if (d.isValid) return d;\n    }\n    const iso = DateTime.fromISO(s, { zone: 'Asia/Manila' });\n    return iso.isValid ? iso : null;\n  };\n  const since = $now.minus({ days: 7 });\n  const recent = rows.filter(r => { const d = parseDate(r.created_at); return d && d >= since; });\n  const count = list => recent.filter(r => list.includes(status(r))).length;\n  const scripted = recent.length;\n  const rendered = count(['READY', 'APPROVED', 'POSTED']);\n  const approved = count(['APPROVED', 'POSTED']);\n  const posted = count(['POSTED']);\n  const waiting = rows.filter(r => ['SCRIPTED', 'CLIPS', 'REDO', 'READY'].includes(status(r))).slice(-8);\n\n  const text = [\n    `📊 <b>Weekly content report</b> · ${since.toFormat('MMM d')} to ${$now.toFormat('MMM d')}`,\n    `<b>${esc(cfg.brand_name)}</b>`,\n    '',\n    `✍️ Scripts written: <b>${scripted}</b>`,\n    `🎞 Ads rendered: <b>${rendered}</b>`,\n    `✅ Approved: <b>${approved}</b>`,\n    `📣 Posted: <b>${posted}</b>`,\n    scripted ? `\\nFrom script to approved ad: <b>${Math.round(approved / scripted * 100)}%</b>` : '\\nNo new scripts this week. Send /ad to start one.',\n    ...(waiting.length ? ['', '<b>Waiting on you</b>', ...waiting.map(r =>\n      `• <code>${esc(r.content_id)}</code> ${esc(r.product)}: ${status(r) === 'READY' ? 'needs your approval' : 'needs clips'}`)] : []),\n  ].join('\\n');\n  return [{ json: { ...base, text } }];\n}\n\nconst row = rows.find(r => String(r.content_id).toUpperCase() === act.content_id);\nif (!row) throw new Error(`I can't find ${act.content_id} in the content calendar.`);\nconst post_text = (String(row.caption || '') + '\\n\\n' + String(row.hashtags || '')).trim().slice(0, 1000);\nreturn [{ json: {\n  ...base,\n  content_id: act.content_id,\n  product: String(row.product || ''),\n  post_text,\n  post_html: esc(post_text),\n} }];"
+      },
+      "id": "0732e1d5-88c5-553f-8ba5-6eb0b42836fb",
+      "name": "Plan Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        480
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "approve",
+                    "id": "5c9d0502-1b39-5f81-b6d7-5127c3774ed6",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "approve"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "redo",
+                    "id": "8ffbafb9-e90b-5902-9159-8108f12721fe",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "redo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "report",
+                    "id": "649b3bc2-1081-5c6b-a674-d43f3fed20c6",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "report"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b05cad97-2ae3-51a4-9969-eba6bd3823c9",
+      "name": "Which Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1540,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_id": "={{ $('Plan Action').first().json.content_id }}",
+            "status": "APPROVED",
+            "approved_at": "={{ $('Plan Action').first().json.stamp }}"
+          },
+          "matchingColumns": [
+            "content_id"
+          ],
+          "schema": [
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "09f3f857-4ba4-5c2d-9f5a-70cfde1fb880",
+      "name": "Mark Approved",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1800,
+        240
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "30066024-01c5-528c-ab38-909a67f4883e",
+              "leftValue": "={{ $('Plan Action').first().json.publish_chat_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "1f9859bb-cea4-5b52-a860-7e11d4860ca6",
+      "name": "Channel Set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2020,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Plan Action').first().json.worker_url }}/out/{{ $('Plan Action').first().json.content_id }}.mp4",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "b72fd8ef-b6a6-546d-8627-6bcc86f56896",
+      "name": "Fetch Finished Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2260,
+        120
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "={{ $('Plan Action').first().json.publish_chat_id }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "caption": "={{ $('Plan Action').first().json.post_text }}",
+          "fileName": "={{ $('Plan Action').first().json.content_id }}.mp4"
+        }
+      },
+      "id": "54a19e0c-50f7-536c-84a6-3c43188a0aa0",
+      "name": "Post to Channel",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2480,
+        120
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_id": "={{ $('Plan Action').first().json.content_id }}",
+            "status": "POSTED",
+            "posted_at": "={{ $('Plan Action').first().json.stamp }}"
+          },
+          "matchingColumns": [
+            "content_id"
+          ],
+          "schema": [
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "65eb1c34-5c0e-5ad2-bee5-23e053f366e1",
+      "name": "Mark Posted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2700,
+        120
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Plan Action').first().json.chat_id }}",
+        "text": "=📣 <code>{{ $('Plan Action').first().json.content_id }}</code> is approved and posted to the channel. The calendar is updated.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "7d7b7476-2843-5101-9b62-f7aa891005c7",
+      "name": "Tell Owner: Posted",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2920,
+        120
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Plan Action').first().json.chat_id }}",
+        "text": "=✅ <code>{{ $('Plan Action').first().json.content_id }}</code> approved. The calendar is updated.\n\n<b>Posting kit</b> (tap to copy):\n<code>{{ $('Plan Action').first().json.post_html }}</code>\n\nThe video is the preview above (press and hold, then Save). It is also on the laptop at <code>files/out/{{ $('Plan Action').first().json.content_id }}.mp4</code>.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "05630f98-b155-5aca-91c3-a2fc00fb2247",
+      "name": "Send Posting Kit",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2260,
+        340
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $json.worker_url }}/clips/{{ $json.content_id }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "67134a18-9745-5102-8f7d-4eda9dfc3b84",
+      "name": "Clear Clips",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        520
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_id": "={{ $('Plan Action').first().json.content_id }}",
+            "status": "REDO",
+            "video_file": ""
+          },
+          "matchingColumns": [
+            "content_id"
+          ],
+          "schema": [
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "video_file",
+              "displayName": "video_file",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "69b96ab3-10f4-5e68-85d8-fb9e9f39a85b",
+      "name": "Mark Redo",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2020,
+        520
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Plan Action').first().json.chat_id }}",
+        "text": "=🔁 Cleared the clips for <code>{{ $('Plan Action').first().json.content_id }}</code>. Send 3 new clips whenever you're ready.\nWant a new script instead? Send /ad again.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "45f1bd2d-f773-5be7-ac74-a70c223487a5",
+      "name": "Tell Owner: Redo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2260,
+        520
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "7972fc84-0423-543c-ab5c-603dbf731e16",
+      "name": "Send Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1800,
+        720
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || $('Config').first().json.chat_id || $('Config').first().json.body?.chat_id || $('Config').first().json.cfg.owner_chat_id }}",
+        "text": "=⚠️ {{ (() => { const raw = String($json.error?.message || $json.error?.description || $json.error || $json.message || 'Something went wrong.'); const m = raw.match(/detail[\\\\\"]*:[\\\\\"]*([^\"\\\\]+)/); return (m ? m[1] : raw).replace(/\\s*\\[line \\d+\\]\\s*$/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 600); })() }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "2d328716-fe36-5f0e-8b1a-304f6ee2c7be",
+      "name": "Tell Owner It Failed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        900
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "From Telegram Router": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday 9am": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API: POST ad-action": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Resolve Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Action": {
+      "main": [
+        [
+          {
+            "node": "Button Tap?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Button Tap?": {
+      "main": [
+        [
+          {
+            "node": "Answer Button Tap",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Button Tap": {
+      "main": [
+        [
+          {
+            "node": "Read Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Calendar": {
+      "main": [
+        [
+          {
+            "node": "Plan Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Action": {
+      "main": [
+        [
+          {
+            "node": "Which Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Action": {
+      "main": [
+        [
+          {
+            "node": "Mark Approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Clips",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Approved": {
+      "main": [
+        [
+          {
+            "node": "Channel Set?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Channel Set?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Finished Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Posting Kit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Finished Video": {
+      "main": [
+        [
+          {
+            "node": "Post to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Channel": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Posted": {
+      "main": [
+        [
+          {
+            "node": "Tell Owner: Posted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Clips": {
+      "main": [
+        [
+          {
+            "node": "Mark Redo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Redo": {
+      "main": [
+        [
+          {
+            "node": "Tell Owner: Redo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [],
+  "active": false
+}

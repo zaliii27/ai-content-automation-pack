@@ -1,0 +1,732 @@
+{
+  "id": "SprintAdBrief001",
+  "name": "01 Ad Brief to Script Pack",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 01 · Ad Brief to Script Pack\n**Problem:** a small business knows its product but has no time to write video ads.\n\n**What happens**\n1. The owner sends `/ad Product | benefit | audience | language` to the Telegram bot (or an app calls the API).\n2. An AI model writes a 24-second, 3-scene ad: on-screen text, voiceover and a ready-to-paste **Google Veo prompt** per scene, plus caption and hashtags.\n3. The script is saved as a new row in the Google Sheets **content calendar**.\n4. The owner gets everything on Telegram, each prompt in a tap-to-copy block.\n\nThe AI model is swappable: any OpenAI-compatible endpoint (Gemini, OpenAI, local Ollama).",
+        "height": 340,
+        "width": 620,
+        "color": 4
+      },
+      "id": "82c0ff1e-3645-52e6-b6f6-326d6bcde309",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "77c16ded-4efa-5eda-ad9d-efe46b4658dd",
+      "name": "From Telegram Router",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ad-brief",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "123eef57-71dc-5934-a6c6-1394680ab232",
+      "name": "API: POST ad-brief",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        520
+      ],
+      "webhookId": "5293eaa9-623d-593d-92a1-292ec810b7db"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7c9e8995-40ff-53a1-a0e0-ebd460305cd3",
+              "name": "cfg.llm_base_url",
+              "type": "string",
+              "value": "={{ $env.LLM_BASE_URL || '' }}"
+            },
+            {
+              "id": "7ea0f1f3-c4dd-5440-8975-969533d2fdd7",
+              "name": "cfg.llm_model",
+              "type": "string",
+              "value": "={{ $env.LLM_MODEL || '' }}"
+            },
+            {
+              "id": "ab8c0e1f-da2c-5476-9a5b-2970ea9a05cd",
+              "name": "cfg.llm_reasoning_effort",
+              "type": "string",
+              "value": "={{ $env.LLM_REASONING_EFFORT || '' }}"
+            },
+            {
+              "id": "2d714e5f-c359-51d0-a0ad-ae18b53dbee7",
+              "name": "cfg.worker_url",
+              "type": "string",
+              "value": "={{ $env.MEDIA_WORKER_URL || '' }}"
+            },
+            {
+              "id": "733c4111-445c-5a92-a7e4-a7d40668950f",
+              "name": "cfg.sheet_id",
+              "type": "string",
+              "value": "={{ $env.SHEET_ID || '' }}"
+            },
+            {
+              "id": "55d14e27-132a-51de-bb61-dfa342e0177d",
+              "name": "cfg.owner_chat_id",
+              "type": "string",
+              "value": "={{ $env.OWNER_CHAT_ID || '' }}"
+            },
+            {
+              "id": "a7f5e301-9340-59b2-bd66-2e506fb506ea",
+              "name": "cfg.publish_chat_id",
+              "type": "string",
+              "value": "={{ $env.PUBLISH_CHAT_ID || '' }}"
+            },
+            {
+              "id": "b50bbfaf-1599-500b-accd-46abe25ea5ab",
+              "name": "cfg.brand_name",
+              "type": "string",
+              "value": "={{ $env.BRAND_NAME || '' }}"
+            },
+            {
+              "id": "d69365fe-88f6-5d43-a96b-055a122c9f95",
+              "name": "cfg.brand_voice",
+              "type": "string",
+              "value": "={{ $env.BRAND_VOICE || '' }}"
+            },
+            {
+              "id": "ffb29f52-88c0-5f19-a9fd-4006407f807b",
+              "name": "cfg.brand_cta",
+              "type": "string",
+              "value": "={{ $env.BRAND_CTA || '' }}"
+            },
+            {
+              "id": "c1cbe0f1-4cbf-5124-9aff-618f475bb953",
+              "name": "cfg.brand_color",
+              "type": "string",
+              "value": "={{ $env.BRAND_COLOR || '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "632c71b6-2045-593f-a0ee-6ed963b92da8",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        420
+      ],
+      "notes": "All settings come from the .env file. Change them there, then run start.ps1."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the brief (from Telegram or the API) and writes the instructions for the AI.\nconst input = $input.first().json;\nconst cfg = input.cfg || {};\nconst fromApi = input.body !== undefined && input.headers !== undefined;\nconst src = fromApi ? (input.body || {}) : input;\n\nlet product, benefit, audience, language;\nif (fromApi) {\n  ({ product, benefit, audience, language } = src);\n} else {\n  [product, benefit, audience, language] = String(src.args || '').split('|').map(s => s.trim());\n}\nconst clean = (s, n) => String(s ?? '').replace(/\\s+/g, ' ').trim().slice(0, n);\nproduct = clean(product, 200);\nbenefit = clean(benefit, 300);\naudience = clean(audience, 200);\nlanguage = clean(language, 40) || 'English';\nif (!product) {\n  throw new Error('Tell me the product, like this → /ad Vanilla Oat Cold Brew | smooth, never bitter | students | English');\n}\nconst languageRule = /taglish/i.test(language)\n  ? 'Taglish (the natural Filipino-English mix spoken in Manila)'\n  : language;\n\n// Short code the owner can type, without look-alike characters (no 0/O, 1/I).\nconst alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';\nconst content_id = 'AD-' + Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');\n\nconst system = `You are a senior short-form video ad creative working for the brand \"${cfg.brand_name}\". Brand voice: ${cfg.brand_voice}.\nYou write 24-second vertical video ads for TikTok, Reels and Shorts. Every ad has exactly 3 scenes of 8 seconds. Each scene is generated separately with Google Veo (in Google Flow). Captions are added later in editing.\n\nReturn ONLY a JSON object with exactly this shape:\n{\n  \"angle\": \"the single idea of the ad, in one sentence\",\n  \"scenes\": [\n    { \"role\": \"hook\", \"on_screen_text\": \"\", \"voiceover\": \"\", \"veo_prompt\": \"\" },\n    { \"role\": \"benefit\", \"on_screen_text\": \"\", \"voiceover\": \"\", \"veo_prompt\": \"\" },\n    { \"role\": \"cta\", \"on_screen_text\": \"\", \"voiceover\": \"\", \"veo_prompt\": \"\" }\n  ],\n  \"caption\": \"\",\n  \"hashtags\": [\"#example\"]\n}\n\nRules:\n- Scene 1 (hook) stops the scroll with a relatable problem or a surprising claim. Scene 2 (benefit) shows the product solving it. Scene 3 (cta) shows the happy result and invites action.\n- on_screen_text: at most 8 words, punchy, no emoji, no hashtags. Language: ${languageRule}.\n- voiceover: one natural spoken sentence, at most 18 words. Language: ${languageRule}.\n- veo_prompt: ALWAYS in English, one paragraph of 60 to 90 words. Start with \"Vertical 9:16 video, 8 seconds.\" Then describe the subject and action, the setting, the camera movement, the lighting and mood, and the audio. Describe the product with the same exact look in every scene (shape, color, material, label color) so it stays consistent. Include the voiceover as narration or as a line a person says, in double quotes. End with \"No on-screen text, no subtitles, no logos.\"\n- Use only facts from the brief. No real brand names, no celebrities, no medical claims, no guaranteed results.\n- caption: 1 or 2 sentences plus the call to action, at most 220 characters. Language: ${languageRule}.\n- hashtags: 5 to 8 relevant hashtags, lowercase, each starting with #.`;\n\nconst user = [\n  `Product: ${product}`,\n  `Key benefit: ${benefit || 'not given, infer one sensible benefit from the product itself'}`,\n  `Target audience: ${audience || 'not given, pick the most likely buyers'}`,\n  `Call to action: ${cfg.brand_cta}`,\n].join('\\n');\n\nconst llm_request = {\n  model: cfg.llm_model,\n  temperature: 0.8,\n  // A JSON schema forces the model to answer in exactly this shape.\n  response_format: { type: 'json_schema', json_schema: { name: 'ad_script_pack', schema: {\n    type: 'object',\n    required: ['angle', 'scenes', 'caption', 'hashtags'],\n    properties: {\n      angle: { type: 'string' },\n      scenes: { type: 'array', minItems: 3, maxItems: 3, items: {\n        type: 'object',\n        required: ['role', 'on_screen_text', 'voiceover', 'veo_prompt'],\n        properties: {\n          role: { type: 'string' },\n          on_screen_text: { type: 'string' },\n          voiceover: { type: 'string' },\n          veo_prompt: { type: 'string' },\n        },\n      } },\n      caption: { type: 'string' },\n      hashtags: { type: 'array', items: { type: 'string' } },\n    },\n  } } },\n  messages: [{ role: 'system', content: system }, { role: 'user', content: user }],\n};\nif (cfg.llm_reasoning_effort) llm_request.reasoning_effort = cfg.llm_reasoning_effort;\n\nreturn [{ json: {\n  content_id,\n  chat_id: String(src.chat_id || cfg.owner_chat_id || ''),\n  source: fromApi ? 'api' : 'telegram',\n  created_at: $now.toFormat('yyyy-MM-dd HH:mm'),\n  brief: { product, benefit, audience, language },\n  cta: cfg.brand_cta,\n  llm_url: String(cfg.llm_base_url || '').replace(/\\/+$/, '') + '/chat/completions',\n  llm_request,\n} }];"
+      },
+      "id": "6e911f6a-0ba4-5a8d-bd48-5df82e1f2f7a",
+      "name": "Build Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        420
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.llm_url }}",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.llm_request) }}"
+      },
+      "id": "fc7e5ed6-86ac-55f8-a872-883705ac254f",
+      "name": "Ask the AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        420
+      ],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SprintLlmKey0001",
+          "name": "LLM API key (Bearer header)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The AI answers with text. This checks it really is the script pack we asked for.\nconst res = $input.first().json;\nconst job = $('Build Brief').first().json;\n\nlet raw = res.choices?.[0]?.message?.content ?? '';\nif (Array.isArray(raw)) raw = raw.map(part => part.text || '').join('');\nraw = String(raw).replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();   // some models think out loud first\n\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nlet pack;\ntry {\n  pack = JSON.parse(raw.slice(start, end + 1));\n} catch (e) {\n  throw new Error('The AI returned a script I could not read. Please send /ad again.');\n}\n\nconst clean = (s, n) => String(s ?? '').replace(/\\s+/g, ' ').trim().slice(0, n);\nconst roles = ['hook', 'benefit', 'cta'];\nconst scenes = (Array.isArray(pack.scenes) ? pack.scenes : []).slice(0, 3).map((s, i) => ({\n  n: i + 1,\n  role: roles[i],\n  on_screen_text: clean(s?.on_screen_text, 80),\n  voiceover: clean(s?.voiceover, 220),\n  veo_prompt: clean(s?.veo_prompt, 1200),\n}));\nif (scenes.length < 3 || scenes.some(s => !s.on_screen_text || !s.veo_prompt)) {\n  throw new Error('The AI returned an incomplete script (I need 3 full scenes). Please send /ad again.');\n}\n\nlet hashtags = Array.isArray(pack.hashtags) ? pack.hashtags : String(pack.hashtags || '').split(/[\\s,]+/);\nhashtags = [...new Set(\n  hashtags.map(h => '#' + String(h).replace(/[^\\p{L}\\p{N}_]/gu, '').toLowerCase()).filter(h => h.length > 1)\n)].slice(0, 8);\n\nreturn [{ json: {\n  content_id: job.content_id,\n  chat_id: job.chat_id,\n  source: job.source,\n  created_at: job.created_at,\n  brief: job.brief,\n  angle: clean(pack.angle, 300),\n  scenes,\n  caption: clean(pack.caption, 400),\n  hashtags,\n  cta: job.cta,\n  model: res.model || job.llm_request.model,\n} }];"
+      },
+      "id": "e748a23c-709f-5fd1-bca5-6e40f885d411",
+      "name": "Parse Script Pack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        420
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.cfg.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content_id": "={{ $('Parse Script Pack').first().json.content_id }}",
+            "created_at": "={{ $('Parse Script Pack').first().json.created_at }}",
+            "status": "SCRIPTED",
+            "product": "={{ $('Parse Script Pack').first().json.brief.product }}",
+            "benefit": "={{ $('Parse Script Pack').first().json.brief.benefit }}",
+            "audience": "={{ $('Parse Script Pack').first().json.brief.audience }}",
+            "language": "={{ $('Parse Script Pack').first().json.brief.language }}",
+            "angle": "={{ $('Parse Script Pack').first().json.angle }}",
+            "scene1_text": "={{ $('Parse Script Pack').first().json.scenes[0].on_screen_text }}",
+            "scene2_text": "={{ $('Parse Script Pack').first().json.scenes[1].on_screen_text }}",
+            "scene3_text": "={{ $('Parse Script Pack').first().json.scenes[2].on_screen_text }}",
+            "scene1_prompt": "={{ $('Parse Script Pack').first().json.scenes[0].veo_prompt }}",
+            "scene2_prompt": "={{ $('Parse Script Pack').first().json.scenes[1].veo_prompt }}",
+            "scene3_prompt": "={{ $('Parse Script Pack').first().json.scenes[2].veo_prompt }}",
+            "caption": "={{ $('Parse Script Pack').first().json.caption }}",
+            "hashtags": "={{ $('Parse Script Pack').first().json.hashtags.join(' ') }}",
+            "video_file": "",
+            "approved_at": "",
+            "posted_at": "",
+            "chat_id": "={{ $('Parse Script Pack').first().json.chat_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "content_id",
+              "displayName": "content_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "product",
+              "displayName": "product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "benefit",
+              "displayName": "benefit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "audience",
+              "displayName": "audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "angle",
+              "displayName": "angle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "scene1_text",
+              "displayName": "scene1_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "scene2_text",
+              "displayName": "scene2_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "scene3_text",
+              "displayName": "scene3_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "scene1_prompt",
+              "displayName": "scene1_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "scene2_prompt",
+              "displayName": "scene2_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "scene3_prompt",
+              "displayName": "scene3_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "hashtags",
+              "displayName": "hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "video_file",
+              "displayName": "video_file",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "approved_at",
+              "displayName": "approved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "posted_at",
+              "displayName": "posted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "995747ed-ed5e-50c9-a8f9-70da03a64ebf",
+      "name": "Save to Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        420
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "SprintGSheets001",
+          "name": "Content Calendar (Google service account)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the Telegram messages. Each Veo prompt gets its own message in a code block,\n// because tapping a code block in Telegram copies it, ready to paste into Google Flow.\nconst p = $('Parse Script Pack').first().json;\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst titles = ['Hook', 'Benefit', 'Call to action'];\n\nconst overview = [\n  `🎬 <b>Ad script ready</b> · <code>${p.content_id}</code>`,\n  `<b>Product:</b> ${esc(p.brief.product)}`,\n  `<b>Idea:</b> ${esc(p.angle)}`,\n  '',\n  ...p.scenes.flatMap((s, i) => [\n    `<b>Scene ${s.n} · ${titles[i]}</b>`,\n    `📝 ${esc(s.on_screen_text)}`,\n    `🎙 ${esc(s.voiceover)}`,\n    '',\n  ]),\n  '<b>Caption</b>',\n  esc(p.caption),\n  esc(p.hashtags.join(' ')),\n].join('\\n');\n\nconst prompts = p.scenes.map(s =>\n  `🎥 <b>Scene ${s.n} prompt</b> (tap to copy, paste into Google Flow)\\n<code>${esc(s.veo_prompt)}</code>`\n);\n\nconst next = [\n  '✅ <b>Next step</b>',\n  'Generate the 3 clips in Google Flow (Veo, portrait 9:16), then send them here in order: scene 1, 2, 3.',\n  'I will add the captions and the end card.',\n  '',\n  `No clips yet? Send <code>/demo ${p.content_id}</code> to preview with placeholder clips.`,\n].join('\\n');\n\nreturn [overview, ...prompts, next].map(text => ({ json: { chat_id: p.chat_id, text } }));"
+      },
+      "id": "0e0e2dcc-59e9-52be-a54c-ea0a072454cb",
+      "name": "Write Telegram Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ef3b040d-6c1d-54dd-98c2-dea4bf7f4291",
+              "leftValue": "={{ $json.chat_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "9b414c64-5a4a-50c6-b0f1-549b0ec4553b",
+      "name": "Has Chat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "711b3cee-c709-50f4-b24d-01acdbd8a057",
+      "name": "Send Script Pack",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1760,
+        340
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// What the workflow hands back to whoever called it (the router or the API).\nconst p = $('Parse Script Pack').first().json;\nreturn [{ json: {\n  ok: true,\n  content_id: p.content_id,\n  angle: p.angle,\n  scenes: p.scenes,\n  caption: p.caption,\n  hashtags: p.hashtags,\n  model: p.model,\n} }];"
+      },
+      "id": "51a3ab1a-b8b9-573a-a038-eeae65f128e1",
+      "name": "Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || $('Config').first().json.chat_id || $('Config').first().json.body?.chat_id || $('Config').first().json.cfg.owner_chat_id }}",
+        "text": "=⚠️ {{ (() => { const raw = String($json.error?.message || $json.error?.description || $json.error || $json.message || 'Something went wrong.'); const m = raw.match(/detail[\\\\\"]*:[\\\\\"]*([^\"\\\\]+)/); return (m ? m[1] : raw).replace(/\\s*\\[line \\d+\\]\\s*$/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 600); })() }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "834db1f9-d1d6-5209-b2b2-a27d286ce3ea",
+      "name": "Tell Owner It Failed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        680
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "SprintTelegram01",
+          "name": "Content Studio Bot (Telegram)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "From Telegram Router": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API: POST ad-brief": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Build Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Brief": {
+      "main": [
+        [
+          {
+            "node": "Ask the AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the AI": {
+      "main": [
+        [
+          {
+            "node": "Parse Script Pack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Script Pack": {
+      "main": [
+        [
+          {
+            "node": "Save to Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Calendar": {
+      "main": [
+        [
+          {
+            "node": "Write Telegram Messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tell Owner It Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Telegram Messages": {
+      "main": [
+        [
+          {
+            "node": "Has Chat?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Chat?": {
+      "main": [
+        [
+          {
+            "node": "Send Script Pack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Script Pack": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [],
+  "active": false
+}

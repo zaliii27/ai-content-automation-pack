@@ -1,0 +1,86 @@
+# AI Content Automation Pack: the whole stack in one file.
+#
+#   n8n            the automation tool (editor at http://localhost:5679)
+#   media-worker   small video service that n8n calls to build the finished ad
+#   gateway        doorman: lets ONLY Telegram's webhook calls reach n8n from the internet
+#   tunnel         gives the laptop a temporary public HTTPS address (needed by Telegram)
+#
+# Everyday use:  .\start.ps1   (starts everything and wires up the public address)
+# Stop:          docker compose --profile tunnel down      (workflows stay saved)
+#
+# This is separate from the Second Brain n8n ("brain-n8n" on port 5678).
+# Different names, ports and volume, so the two never mix.
+
+name: sprint-automation-pack
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-2.37.7}
+    container_name: sprint-n8n
+    restart: unless-stopped
+    ports:
+      # left = door on the laptop, right = door inside the container.
+      # 127.0.0.1 means only this laptop can open the editor.
+      - "127.0.0.1:5679:5678"
+    environment:
+      - TZ=Asia/Manila
+      - GENERIC_TIMEZONE=Asia/Manila
+      - N8N_EDITOR_BASE_URL=http://localhost:5679
+      # Public address that Telegram calls back. start.ps1 fills this in.
+      - N8N_WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5679/}
+      - N8N_PROXY_HOPS=2
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+      # Lets workflows read the settings below with {{ $env.NAME }}.
+      # Keeps personal IDs out of the exported workflow files.
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # ---- settings the workflows read (values come from .env) ----
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
+      - LLM_REASONING_EFFORT=${LLM_REASONING_EFFORT:-none}
+      - MEDIA_WORKER_URL=http://media-worker:8000
+      - SHEET_ID=${SHEET_ID:-}
+      - OWNER_CHAT_ID=${OWNER_CHAT_ID:-}
+      - PUBLISH_CHAT_ID=${PUBLISH_CHAT_ID:-}
+      - BRAND_NAME=${BRAND_NAME:-Tala Coffee Co.}
+      - BRAND_VOICE=${BRAND_VOICE:-warm, playful, confident}
+      - BRAND_CTA=${BRAND_CTA:-Order today. Link in bio.}
+      - BRAND_COLOR=${BRAND_COLOR:-#1F3A2E}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # n8n's memory: workflows, credentials, settings. Survives restarts.
+      - sprint_n8n_data:/home/node/.n8n
+
+  media-worker:
+    build: ./worker
+    container_name: sprint-media-worker
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8000"
+    volumes:
+      # ./files on the laptop appears as /files inside the worker.
+      # Raw clips go in files/inbox/<content id>/, finished ads come out in files/out/.
+      - ./files:/files
+
+  gateway:
+    image: caddy:2-alpine
+    container_name: sprint-gateway
+    restart: "no"
+    profiles: ["tunnel"]
+    volumes:
+      - ./gateway/Caddyfile:/etc/caddy/Caddyfile:ro
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: sprint-tunnel
+    restart: "no"
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://gateway:8080
+    depends_on:
+      - gateway
+
+volumes:
+  sprint_n8n_data:
+    name: sprint_n8n_data
