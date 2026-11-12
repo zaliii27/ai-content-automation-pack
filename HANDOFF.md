@@ -33,7 +33,7 @@ Updated 2026-11-13 after the first live run.
 Be honest about these in any status report.
 
 1. **A real clip sent in Telegram has not gone through** (the "Download Clip" node). Only `/demo` placeholder clips.
-2. **The Approve and Redo buttons have not been tapped live.** The approve and redo logic ran only through the API with stand-ins.
+2. **The Redo button has not been tapped live.** Approve was tapped live on 2026-11-13 and returned the posting kit. Redo ran only through the API with stand-ins.
 3. **Auto-posting to a channel (`PUBLISH_CHAT_ID`) has never run.**
 4. **Gemini has not been tried.** Only the local model, which is weak.
 5. **No real Google Flow clip has gone through the renderer.**
