@@ -59,8 +59,8 @@ This loads the 4 workflows and creates the 3 credentials above, empty, already c
 **Option B, Gemini (better scripts):**
 
 1. Get an API key at https://aistudio.google.com/apikey.
-2. In n8n: **Credentials** → **LLM API key (Bearer header)** → set **Value** to `Bearer ` followed by your key → **Save**.
-3. In `.env`, switch the two `LLM_` lines to the Gemini ones shown in the comments.
+2. In n8n: **Credentials** → **LLM API key (Bearer header)**. Keep **Name** as `Authorization`. Set **Value** (in **Fixed** mode, not Expression) to the word `Bearer`, one space, then your key, like `Bearer AIza...` → **Save**.
+3. In `.env`, switch the `LLM_` lines to the Gemini ones shown in the comments, then run `.\start.ps1`.
 
 ## 6. Go live
 

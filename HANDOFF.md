@@ -24,7 +24,8 @@ Updated 2026-11-13 after the first live run.
 | Workflow 01 end to end | Working live | Brief → local LLM → sheet row → Telegram messages |
 | Workflow 02 demo path | Working live | Placeholder clips → render → preview sent → sheet updated |
 | Workflow 03 report path | Working live | Report read from the real sheet and sent to Telegram |
-| Error branches | Working (stand-ins) | Each failure path returns the plain-language message |
+| Gemini as the script writer | Working live | `gemini-3.5-flash-lite` wrote a Taglish script in 19 s; the row landed in the sheet |
+| Error branches | Working (stand-ins and live) | Each failure path returns the plain-language message |
 | Google Cloud | Set up | Project `content-studio`, Sheets API on, service account `n8n-content-studio`, sheet shared with it |
 | READMEs, demo scripts, setup guide | Written | |
 
@@ -35,10 +36,9 @@ Be honest about these in any status report.
 1. **A real clip sent in Telegram has not gone through** (the "Download Clip" node). Only `/demo` placeholder clips.
 2. **The Redo button has not been tapped live.** Approve was tapped live on 2026-11-13 and returned the posting kit. Redo ran only through the API with stand-ins.
 3. **Auto-posting to a channel (`PUBLISH_CHAT_ID`) has never run.**
-4. **Gemini has not been tried.** Only the local model, which is weak.
-5. **No real Google Flow clip has gone through the renderer.**
-6. **No screenshots, no demo videos, no GitHub push yet.**
-7. **"Result" sections** in the READMEs hold test measurements with `TODO` markers, not numbers from real use.
+4. **No real Google Flow clip has gone through the renderer.**
+5. **No screenshots, no demo videos, no GitHub push yet.**
+6. **"Result" sections** in the READMEs hold test measurements with `TODO` markers, not numbers from real use.
 
 ## 4. Exact next steps, in order
 
@@ -58,9 +58,9 @@ git add -A
 git commit -m "Fix <what> after live test"
 ```
 
-### C. Switch to Gemini for demo quality
+### C. Gemini (done on 2026-11-13)
 
-Setup guide section 5, option B. Then send the same `/ad` line and compare. If Gemini rejects the request, see gotcha 9.
+`.env` points to Gemini with `LLM_MODEL=gemini-3.5-flash-lite`. To go back to the free local model, restore the three Ollama `LLM_` lines from `.env.example` and run `start.ps1`. If Gemini rejects a request, see gotchas 9, 19 and 20.
 
 ### D. Record and publish
 
@@ -124,6 +124,9 @@ media-worker ↔ ./files (inbox/<ad code>/, out/<ad code>.mp4)
 17. **The workflow files are tidied n8n exports.** `scripts/export-workflows.ps1` strips owner and sharing details (they contain the n8n account email). Don't commit a raw export from the n8n editor's "Download" button without checking it for personal details. Edit in the n8n editor, then run the export script.
 
 18. **Type IDs, don't read them off screenshots.** A chat ID misread by one digit made Telegram answer "chat not found" and would have locked the owner out. Copy the number as text.
+
+19. **Gemini model names expire and models get overloaded.** `gemini-2.5-flash` is closed to new users, and `gemini-flash-latest` returned "high demand" errors or took 4 minutes. `gemini-3.5-flash-lite` worked. If scripts fail with "no longer available", the error names the replacement: put it in `.env` as `LLM_MODEL` and run `start.ps1`.
+20. **"Missing or invalid Authorization header"** means the LLM credential value is not exactly `Bearer <key>`. Re-enter it in **Fixed** mode: the word Bearer, one space, the key, no comma or quotes.
 
 ## 7. Useful commands
 
