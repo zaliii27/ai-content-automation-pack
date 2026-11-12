@@ -15,8 +15,14 @@ if (-not (Test-Path .env)) {
 }
 
 Write-Host "1/4 Starting the video service, the gateway and the tunnel..."
-docker compose --profile tunnel up -d --build media-worker gateway tunnel | Out-Null
+docker compose --profile tunnel up -d --build media-worker gateway | Out-Null
 if ($LASTEXITCODE -ne 0) { Write-Host "Docker could not start the services. Is Docker Desktop running?"; exit 1 }
+# A tunnel that is already running keeps its address. A stopped one is rebuilt from
+# scratch, so its log holds only the NEW address (an old log would still show the old one).
+$tunnelRunning = docker ps --filter "name=sprint-tunnel" --filter "status=running" -q
+if (-not $tunnelRunning) {
+    docker compose --profile tunnel up -d --force-recreate tunnel | Out-Null
+}
 
 Write-Host "2/4 Waiting for the public address..."
 $url = $null

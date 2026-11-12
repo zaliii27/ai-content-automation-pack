@@ -810,7 +810,7 @@
     {
       "parameters": {
         "chatId": "={{ $json.chat_id || $('Config').first().json.chat_id || $('Config').first().json.body?.chat_id || $('Config').first().json.cfg.owner_chat_id }}",
-        "text": "=⚠️ {{ (() => { const raw = String($json.error?.message || $json.error?.description || $json.error || $json.message || 'Something went wrong.'); const m = raw.match(/detail[\\\\\"]*:[\\\\\"]*([^\"\\\\]+)/); return (m ? m[1] : raw).replace(/\\s*\\[line \\d+\\]\\s*$/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 600); })() }}",
+        "text": "=⚠️ {{ (() => { const raw = String($json.error?.message || $json.error?.description || $json.error || $json.message || 'Something went wrong.'); const m = raw.match(/(?:detail|message)[\\\\\"]*:\\s*[\\\\\"]*([^\"\\\\]+)/); return (m ? m[1] : raw).replace(/\\s*\\[line \\d+\\]\\s*$/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 600); })() }}",
         "additionalFields": {
           "appendAttribution": false,
           "disable_web_page_preview": true,
