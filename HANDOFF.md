@@ -12,44 +12,43 @@ Read [README.md](README.md) for the overview and [docs/SETUP.md](docs/SETUP.md) 
 
 ## 2. What is done
 
+Updated 2026-11-13 after the first live run.
+
 | Piece | State | How it was checked |
 |---|---|---|
 | Docker stack: n8n 2.37.7 on port 5679, media-worker on 8090 | Running | Health checks pass |
 | media-worker (ffmpeg service) | Working | Rendered sample clips (portrait and landscape) into a 14.5 s ad; frames inspected |
-| Workflow 01, 02, 03 logic: Code nodes, HTTP calls, Switch/If routing, error branches | Working | Run end to end through their API webhooks, with Telegram and Sheets nodes swapped for stand-ins |
-| Router logic | Working | Fed fake Telegram updates: `/start`, `/ad`, `/demo`, video, big video, button tap, `/report`, unknown text |
-| LLM call | Working on local Ollama `qwen3:8b` | Real calls, JSON schema output, Taglish |
-| Gateway (Caddy) | Working | Only `/webhook/<id>/webhook` reaches n8n, everything else gets 404 |
-| Workflows 01–03 in n8n | Imported and published | `n8n list:workflow --active=true` |
+| Tunnel, gateway and `start.ps1` | Working live | Telegram delivers through the tunnel; the editor returns 404 from outside |
+| Telegram bot (`/start`, text messages, video preview with buttons) | Working live | Real `/start` from the owner's phone; report and preview arrived |
+| Google Sheets (read, append, update) | Working live | A real `/ad` row was written, then updated to `READY`; checked in the sheet |
+| Workflow 01 end to end | Working live | Brief → local LLM → sheet row → Telegram messages |
+| Workflow 02 demo path | Working live | Placeholder clips → render → preview sent → sheet updated |
+| Workflow 03 report path | Working live | Report read from the real sheet and sent to Telegram |
+| Error branches | Working (stand-ins) | Each failure path returns the plain-language message |
+| Google Cloud | Set up | Project `content-studio`, Sheets API on, service account `n8n-content-studio`, sheet shared with it |
 | READMEs, demo scripts, setup guide | Written | |
 
 ## 3. What is NOT done or NOT verified
 
 Be honest about these in any status report.
 
-1. **Telegram nodes have never run against real Telegram.** Parameters were written from the node's schema, not tested live. First real `/start` may reveal a small mistake.
-2. **Google Sheets nodes have never run against a real sheet.** Same caveat. Column mapping uses "Map Each Column Manually".
-3. **The tunnel and `start.ps1` have never run end to end.** The gateway was tested locally only.
-4. **The router (00) is not published.** It needs the Telegram token first.
-5. **Gemini has not been tried.** Only the local model.
-6. **No real Flow clip has gone through the renderer.** Only generated placeholder clips.
-7. **No screenshots, no demo videos, no GitHub push yet.**
-8. **"Result" sections** in the READMEs hold test measurements with `TODO` markers, not numbers from real use.
+1. **A real clip sent in Telegram has not gone through** (the "Download Clip" node). Only `/demo` placeholder clips.
+2. **The Approve and Redo buttons have not been tapped live.** The approve and redo logic ran only through the API with stand-ins.
+3. **Auto-posting to a channel (`PUBLISH_CHAT_ID`) has never run.**
+4. **Gemini has not been tried.** Only the local model, which is weak.
+5. **No real Google Flow clip has gone through the renderer.**
+6. **No screenshots, no demo videos, no GitHub push yet.**
+7. **"Result" sections** in the READMEs hold test measurements with `TODO` markers, not numbers from real use.
 
 ## 4. Exact next steps, in order
 
-### A. Zali's setup steps (only Zali can do these; about 30 minutes)
+### A. Setup (done on 2026-11-13)
 
-Follow [docs/SETUP.md](docs/SETUP.md) sections 3 to 6:
+Bot token, Google Sheet, service account and chat ID are all in place. To repeat the setup on another machine, follow [docs/SETUP.md](docs/SETUP.md). `scripts/set-google-key.ps1` loads a downloaded service account key file into n8n without copy-pasting.
 
-1. BotFather token → credential **Content Studio Bot (Telegram)**.
-2. Google Sheet from `docs/content-calendar-template.csv`, tab named `Calendar`, `SHEET_ID` in `.env`.
-3. Service account → credential **Content Calendar (Google service account)** → share the sheet with its email.
-4. Run `.\start.ps1`. Publish **00 Telegram Router** in the editor. Send `/start`. Put the chat ID in `.env` as `OWNER_CHAT_ID`. Run `.\start.ps1` again.
+### B. Finish the live test
 
-### B. First live test (expect one or two small fixes)
-
-Run section 7 of the setup guide. For each failure: open n8n → **Executions** → the red run → the red node, and read the error. Likely suspects are listed in section 6 below.
+In Telegram: tap **Approve** on a preview, send `/report`, then send 3 real video clips, then try **Redo**. For each failure: open n8n → **Executions** → the red run → the red node, and read the error. Likely suspects are listed in section 6 below.
 
 After fixing anything in the editor, save it back to the repo:
 
@@ -123,6 +122,8 @@ media-worker ↔ ./files (inbox/<ad code>/, out/<ad code>.mp4)
 15. **A "Python task runner" warning in the n8n log is harmless.** No workflow uses Python.
 16. **Docker Desktop has about 4 GB of RAM** on this laptop. Rendering is light, but don't run heavy containers next to it.
 17. **The workflow files are tidied n8n exports.** `scripts/export-workflows.ps1` strips owner and sharing details (they contain the n8n account email). Don't commit a raw export from the n8n editor's "Download" button without checking it for personal details. Edit in the n8n editor, then run the export script.
+
+18. **Type IDs, don't read them off screenshots.** A chat ID misread by one digit made Telegram answer "chat not found" and would have locked the owner out. Copy the number as text.
 
 ## 7. Useful commands
 

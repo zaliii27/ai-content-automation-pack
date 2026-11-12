@@ -47,7 +47,8 @@ This loads the 4 workflows and creates the 3 credentials above, empty, already c
 2. **APIs & Services → Library**: enable **Google Sheets API** and **Google Drive API**.
 3. **IAM & Admin → Service Accounts → Create service account**. Name it, then **Done**.
 4. Open the new service account → **Keys → Add key → Create new key → JSON**. A file downloads. Keep it out of this folder.
-5. Open that file in Notepad. You need two values: `client_email` and `private_key`.
+5. **Shortcut:** run `.\scripts\set-google-key.ps1`. It finds the key file in Downloads and loads it into n8n, so you can skip steps 5b and 6. Then do step 7 with the address it prints.
+   5b. Or by hand: open that file in Notepad. You need two values: `client_email` and `private_key`.
 6. In n8n: **Credentials** → **Content Calendar (Google service account)** → paste `client_email` into **Service Account Email** and the whole `private_key` (from `-----BEGIN` to `-----END PRIVATE KEY-----\n`) into **Private Key** → **Save**.
 7. Back in the Google Sheet: **Share** → paste the `client_email` address → role **Editor** → **Send**.
 

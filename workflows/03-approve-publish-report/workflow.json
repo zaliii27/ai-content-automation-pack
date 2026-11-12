@@ -14,8 +14,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -40,
-        -180
+        -48,
+        -176
       ]
     },
     {
@@ -28,7 +28,7 @@
       "typeVersion": 1.1,
       "position": [
         0,
-        300
+        304
       ]
     },
     {
@@ -37,12 +37,10 @@
           "interval": [
             {
               "field": "weeks",
-              "weeksInterval": 1,
               "triggerAtDay": [
                 1
               ],
-              "triggerAtHour": 9,
-              "triggerAtMinute": 0
+              "triggerAtHour": 9
             }
           ]
         }
@@ -69,7 +67,7 @@
       "typeVersion": 2,
       "position": [
         0,
-        660
+        672
       ],
       "webhookId": "3fffa65f-bbcd-559b-91b4-93da84e57254"
     },
@@ -153,7 +151,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        220,
+        224,
         480
       ],
       "notes": "All settings come from the .env file. Change them there, then run start.ps1."
@@ -167,7 +165,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        448,
         480
       ],
       "onError": "continueErrorOutput"
@@ -203,14 +201,13 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        660,
+        672,
         480
       ]
     },
     {
       "parameters": {
         "resource": "callback",
-        "operation": "answerQuery",
         "queryId": "={{ $json.callback_id }}",
         "additionalFields": {
           "text": "={{ $json.action === 'approve' ? 'Approved ✅' : 'OK, starting over 🔁' }}"
@@ -222,8 +219,9 @@
       "typeVersion": 1.2,
       "position": [
         880,
-        380
+        384
       ],
+      "webhookId": "02c1894a-bf44-4e55-bb15-834250bc71ad",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -235,8 +233,6 @@
     {
       "parameters": {
         "authentication": "serviceAccount",
-        "resource": "sheet",
-        "operation": "read",
         "documentId": {
           "__rl": true,
           "mode": "id",
@@ -254,16 +250,16 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        1100,
+        1104,
         480
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "googleApi": {
           "id": "SprintGSheets001",
           "name": "Content Calendar (Google service account)"
         }
-      },
-      "alwaysOutputData": true
+      }
     },
     {
       "parameters": {
@@ -274,7 +270,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
+        1328,
         480
       ],
       "onError": "continueErrorOutput"
@@ -364,14 +360,13 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1540,
+        1552,
         480
       ]
     },
     {
       "parameters": {
         "authentication": "serviceAccount",
-        "resource": "sheet",
         "operation": "update",
         "documentId": {
           "__rl": true,
@@ -437,7 +432,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        1800,
+        1808,
         240
       ],
       "credentials": {
@@ -479,22 +474,20 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2020,
+        2032,
         240
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $('Plan Action').first().json.worker_url }}/out/{{ $('Plan Action').first().json.content_id }}.mp4",
         "options": {
-          "timeout": 120000,
           "response": {
             "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "data"
+              "responseFormat": "file"
             }
-          }
+          },
+          "timeout": 120000
         }
       },
       "id": "b72fd8ef-b6a6-546d-8627-6bcc86f56896",
@@ -502,8 +495,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2260,
-        120
+        2272,
+        128
       ],
       "onError": "continueErrorOutput"
     },
@@ -512,7 +505,6 @@
         "operation": "sendVideo",
         "chatId": "={{ $('Plan Action').first().json.publish_chat_id }}",
         "binaryData": true,
-        "binaryPropertyName": "data",
         "additionalFields": {
           "caption": "={{ $('Plan Action').first().json.post_text }}",
           "fileName": "={{ $('Plan Action').first().json.content_id }}.mp4"
@@ -524,8 +516,9 @@
       "typeVersion": 1.2,
       "position": [
         2480,
-        120
+        128
       ],
+      "webhookId": "e1086f8b-080f-408c-81b9-d4d032f23690",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -537,7 +530,6 @@
     {
       "parameters": {
         "authentication": "serviceAccount",
-        "resource": "sheet",
         "operation": "update",
         "documentId": {
           "__rl": true,
@@ -603,8 +595,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        2700,
-        120
+        2704,
+        128
       ],
       "credentials": {
         "googleApi": {
@@ -620,8 +612,8 @@
         "text": "=📣 <code>{{ $('Plan Action').first().json.content_id }}</code> is approved and posted to the channel. The calendar is updated.",
         "additionalFields": {
           "appendAttribution": false,
-          "parse_mode": "HTML",
-          "disable_web_page_preview": true
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
         }
       },
       "id": "7d7b7476-2843-5101-9b62-f7aa891005c7",
@@ -629,9 +621,10 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2920,
-        120
+        2928,
+        128
       ],
+      "webhookId": "beeda67d-8116-44fa-b405-539061695637",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -645,8 +638,8 @@
         "text": "=✅ <code>{{ $('Plan Action').first().json.content_id }}</code> approved. The calendar is updated.\n\n<b>Posting kit</b> (tap to copy):\n<code>{{ $('Plan Action').first().json.post_html }}</code>\n\nThe video is the preview above (press and hold, then Save). It is also on the laptop at <code>files/out/{{ $('Plan Action').first().json.content_id }}.mp4</code>.",
         "additionalFields": {
           "appendAttribution": false,
-          "parse_mode": "HTML",
-          "disable_web_page_preview": true
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
         }
       },
       "id": "05630f98-b155-5aca-91c3-a2fc00fb2247",
@@ -654,9 +647,10 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2260,
-        340
+        2272,
+        352
       ],
+      "webhookId": "ad1d42d3-605d-4f7b-9a7f-e202d35304fa",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -677,15 +671,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1800,
-        520
+        1808,
+        528
       ],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "authentication": "serviceAccount",
-        "resource": "sheet",
         "operation": "update",
         "documentId": {
           "__rl": true,
@@ -751,8 +744,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        2020,
-        520
+        2032,
+        512
       ],
       "credentials": {
         "googleApi": {
@@ -768,8 +761,8 @@
         "text": "=🔁 Cleared the clips for <code>{{ $('Plan Action').first().json.content_id }}</code>. Send 3 new clips whenever you're ready.\nWant a new script instead? Send /ad again.",
         "additionalFields": {
           "appendAttribution": false,
-          "parse_mode": "HTML",
-          "disable_web_page_preview": true
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
         }
       },
       "id": "45f1bd2d-f773-5be7-ac74-a70c223487a5",
@@ -777,9 +770,10 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2260,
-        520
+        2272,
+        528
       ],
+      "webhookId": "f32d7be0-9d56-4689-9be9-ca897ebf356b",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -793,8 +787,8 @@
         "text": "={{ $json.text }}",
         "additionalFields": {
           "appendAttribution": false,
-          "parse_mode": "HTML",
-          "disable_web_page_preview": true
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
         }
       },
       "id": "7972fc84-0423-543c-ab5c-603dbf731e16",
@@ -802,9 +796,10 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1800,
-        720
+        1856,
+        848
       ],
+      "webhookId": "dff2181a-25c9-4ae7-ac33-50a57403a88c",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -818,8 +813,8 @@
         "text": "=⚠️ {{ (() => { const raw = String($json.error?.message || $json.error?.description || $json.error || $json.message || 'Something went wrong.'); const m = raw.match(/detail[\\\\\"]*:[\\\\\"]*([^\"\\\\]+)/); return (m ? m[1] : raw).replace(/\\s*\\[line \\d+\\]\\s*$/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 600); })() }}",
         "additionalFields": {
           "appendAttribution": false,
-          "parse_mode": "HTML",
-          "disable_web_page_preview": true
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
         }
       },
       "id": "2d328716-fe36-5f0e-8b1a-304f6ee2c7be",
@@ -827,9 +822,10 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1540,
-        900
+        1488,
+        912
       ],
+      "webhookId": "e19541c6-bb76-449e-9d56-69960300b6ac",
       "credentials": {
         "telegramApi": {
           "id": "SprintTelegram01",
@@ -1115,7 +1111,8 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "Asia/Manila",
-    "callerPolicy": "workflowsFromSameOwner"
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate"
   },
   "pinData": {},
   "meta": {
