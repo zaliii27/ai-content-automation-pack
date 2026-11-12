@@ -127,6 +127,7 @@ media-worker ↔ ./files (inbox/<ad code>/, out/<ad code>.mp4)
 
 19. **Gemini model names expire and models get overloaded.** `gemini-2.5-flash` is closed to new users, and `gemini-flash-latest` returned "high demand" errors or took 4 minutes. `gemini-3.5-flash-lite` worked. If scripts fail with "no longer available", the error names the replacement: put it in `.env` as `LLM_MODEL` and run `start.ps1`.
 20. **"Missing or invalid Authorization header"** means the LLM credential value is not exactly `Bearer <key>`. Re-enter it in **Fixed** mode: the word Bearer, one space, the key, no comma or quotes.
+21. **Gemini's free tier is often overloaded** ("high demand", error 503). **Ask the AI** retries 5 times, 5 seconds apart, so a script can take up to a minute. If it still fails, send `/ad` again.
 
 ## 7. Useful commands
 

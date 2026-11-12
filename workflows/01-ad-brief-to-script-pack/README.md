@@ -15,6 +15,12 @@ The owner sends one line to a Telegram bot:
 /ad Vanilla Oat Cold Brew | smooth, never bitter, 120mg caffeine | students and remote workers | English
 ```
 
+An optional fifth part sets the style, and can switch the voiceover off:
+
+```
+/ad Ube Cheese Pandesal | soft, baked fresh every morning | pastry lovers | English | luxurious, slow, no voiceover, piano music only
+```
+
 About 20 seconds later they have a complete **script pack**:
 
 - the idea of the ad in one sentence
@@ -30,7 +36,7 @@ About 20 seconds later they have a complete **script pack**:
 | 1 | **From Telegram Router** / **API: POST ad-brief** | Two ways in: the bot, or another app calling `POST /webhook/ad-brief` |
 | 2 | **Config** | Reads the brand and model settings from `.env` |
 | 3 | **Build Brief** (Code) | Parses the brief, makes the ad code, writes the instructions for the AI |
-| 4 | **Ask the AI** (HTTP Request) | Calls any OpenAI-compatible model. A JSON schema forces the answer shape. Retries once. |
+| 4 | **Ask the AI** (HTTP Request) | Calls any OpenAI-compatible model. A JSON schema forces the answer shape. Retries up to 5 times, because free AI tiers are often briefly overloaded. |
 | 5 | **Parse Script Pack** (Code) | Checks the answer really has 3 complete scenes, trims lengths, cleans hashtags |
 | 6 | **Save to Calendar** (Google Sheets) | Appends the row with status `SCRIPTED` |
 | 7 | **Write Telegram Messages** (Code) | One overview message, one message per Veo prompt, one "next step" message |
@@ -42,7 +48,7 @@ About 20 seconds later they have a complete **script pack**:
 ```bash
 curl -X POST http://localhost:5679/webhook/ad-brief \
   -H "Content-Type: application/json" \
-  -d '{"product":"Vanilla Oat Cold Brew","benefit":"smooth, never bitter","audience":"students","language":"Taglish"}'
+  -d '{"product":"Vanilla Oat Cold Brew","benefit":"smooth, never bitter","audience":"students","language":"Taglish","style":"playful, fast cuts"}'
 ```
 
 Returns the script pack as JSON. This is how another system (a chatbot, a form, a CRM) can order an ad.

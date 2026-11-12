@@ -93,7 +93,7 @@ Then fill in the three credentials in n8n, publish the router, and send `/start`
 
 | Send this | What happens |
 |-----------|--------------|
-| `/ad Product \| benefit \| audience \| language` | Writes a script pack. Language can be English, Tagalog or Taglish. |
+| `/ad Product \| benefit \| audience \| language \| style` | Writes a script pack. Language can be English, Tagalog or Taglish. Style is optional free text, for example `luxurious, slow, no voiceover, piano music only`. |
 | a video (optionally with the ad code as caption) | Stores the clip. After the 3rd clip the ad is rendered. |
 | `/render AD-XXXXX` | Renders now with the clips stored so far. |
 | `/demo` or `/demo AD-XXXXX` | Renders with placeholder clips. Costs no AI video credits. |
