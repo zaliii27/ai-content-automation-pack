@@ -12,7 +12,7 @@ Content gets made, then stalls. Nobody is sure which ads were approved, which we
 - **Approve** (button under the preview): the calendar row becomes `APPROVED`.
   - If a channel is configured, the ad is posted there with its caption and the row becomes `POSTED`.
   - If not, the owner gets a **posting kit**: caption and hashtags in a tap-to-copy block, ready for TikTok or Instagram.
-- **Redo** (button): the stored clips are deleted and the row becomes `REDO`, ready for new clips.
+- **Redo** (button): the stored clips are deleted and the row becomes `REDO`, ready for new clips. Redo is refused once an ad is approved, so an approval can't be undone by a stray tap.
 - **Every Monday at 9:00**, or on `/report`: a summary of the last 7 days arrives on Telegram, with a list of ads waiting on the owner.
 
 Nothing is ever posted without a person tapping Approve.

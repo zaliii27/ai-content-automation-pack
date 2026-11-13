@@ -56,9 +56,10 @@ flowchart LR
 
 ## Result
 
-<!-- TODO after recording the demos: replace with measured numbers from a real run. -->
-- One Telegram message produces a full script pack with Veo prompts. Measured on the local test model: about 20 seconds.
-- Three raw clips become one captioned, branded vertical ad without opening a video editor. Measured with placeholder clips: about 5 seconds of render time.
+Measured on the first real run (one laptop, free tiers, 2026-11-13):
+
+- One Telegram message produces a full script pack with Veo prompts in about 20 seconds (Gemini Flash-Lite).
+- Three raw Google Veo clips became a 30-second captioned, branded vertical ad in under a minute, without opening a video editor.
 - Every ad has a row in the content calendar with its status: `SCRIPTED` → `READY` → `APPROVED` → `POSTED`.
 
 Demo videos: _add links here_ · Screenshots: [docs/screenshots](docs/screenshots)

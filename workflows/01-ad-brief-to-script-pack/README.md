@@ -55,8 +55,7 @@ Returns the script pack as JSON. This is how another system (a chatbot, a form, 
 
 ## Result
 
-<!-- TODO: replace with numbers from a real run on Gemini -->
-- Brief to full script pack: about 20 seconds on a local 8B model.
+- Brief to full script pack: about 20 seconds on Gemini Flash-Lite (free tier), and about the same on a local 8B model.
 - The prompts follow a fixed recipe (9:16, 8 seconds, consistent product look, no on-screen text), so clips from different scenes fit together.
 - Supports English, Tagalog and Taglish for on-screen text, voiceover and caption. Veo prompts are always English.
 

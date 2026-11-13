@@ -23,6 +23,8 @@ Updated 2026-11-13 after the first live run.
 | Google Sheets (read, append, update) | Working live | A real `/ad` row was written, then updated to `READY`; checked in the sheet |
 | Workflow 01 end to end | Working live | Brief → local LLM → sheet row → Telegram messages |
 | Workflow 02 demo path | Working live | Placeholder clips → render → preview sent → sheet updated |
+| Workflow 02 with real Google Flow clips | Working live | 3 Veo clips sent in Telegram became a 30.6 s, 1080x1920 ad with captions, sound and end card (`AD-4ABK9`) |
+| Approve and Redo buttons | Working live | Both tapped on the phone. Redo is refused once an ad is approved |
 | Workflow 03 report path | Working live | Report read from the real sheet and sent to Telegram |
 | Gemini as the script writer | Working live | `gemini-3.5-flash-lite` wrote a Taglish script in 19 s; the row landed in the sheet |
 | Error branches | Working (stand-ins and live) | Each failure path returns the plain-language message |
@@ -33,12 +35,10 @@ Updated 2026-11-13 after the first live run.
 
 Be honest about these in any status report.
 
-1. **A real clip sent in Telegram has not gone through** (the "Download Clip" node). Only `/demo` placeholder clips.
-2. **The Redo button has not been tapped live.** Approve was tapped live on 2026-11-13 and returned the posting kit. Redo ran only through the API with stand-ins.
-3. **Auto-posting to a channel (`PUBLISH_CHAT_ID`) has never run.**
-4. **No real Google Flow clip has gone through the renderer.**
-5. **No screenshots, no demo videos, no GitHub push yet.**
-6. **"Result" sections** in the READMEs hold test measurements with `TODO` markers, not numbers from real use.
+1. **Auto-posting to a channel (`PUBLISH_CHAT_ID`) has never run.**
+2. **No screenshots, no demo videos, no GitHub push yet.**
+3. **"Result" sections** in the READMEs hold measurements from test runs, not from client use.
+4. **Sheet row `AD-4ABK9` says `REDO`** although its finished video exists at `files/out/AD-4ABK9.mp4`. It was approved, then Redo was tapped before the guard existed. Set its status back to `APPROVED` by hand if you want the report to count it.
 
 ## 4. Exact next steps, in order
 
@@ -46,17 +46,9 @@ Be honest about these in any status report.
 
 Bot token, Google Sheet, service account and chat ID are all in place. To repeat the setup on another machine, follow [docs/SETUP.md](docs/SETUP.md). `scripts/set-google-key.ps1` loads a downloaded service account key file into n8n without copy-pasting.
 
-### B. Finish the live test
+### B. Live test (done on 2026-11-13)
 
-In Telegram: tap **Approve** on a preview, send `/report`, then send 3 real video clips, then try **Redo**. For each failure: open n8n → **Executions** → the red run → the red node, and read the error. Likely suspects are listed in section 6 below.
-
-After fixing anything in the editor, save it back to the repo:
-
-```powershell
-.\scripts\export-workflows.ps1
-git add -A
-git commit -m "Fix <what> after live test"
-```
+Every path except channel auto-posting has run live. If something breaks later: open n8n → **Executions** → the red run → the red node, and read the error. After fixing anything in the editor, run `scripts/export-workflows.ps1` and commit.
 
 ### C. Gemini (done on 2026-11-13)
 
@@ -128,6 +120,7 @@ media-worker ↔ ./files (inbox/<ad code>/, out/<ad code>.mp4)
 19. **Gemini model names expire and models get overloaded.** `gemini-2.5-flash` is closed to new users, and `gemini-flash-latest` returned "high demand" errors or took 4 minutes. `gemini-3.5-flash-lite` worked. If scripts fail with "no longer available", the error names the replacement: put it in `.env` as `LLM_MODEL` and run `start.ps1`.
 20. **"Missing or invalid Authorization header"** means the LLM credential value is not exactly `Bearer <key>`. Re-enter it in **Fixed** mode: the word Bearer, one space, the key, no comma or quotes.
 21. **Gemini's free tier is often overloaded** ("high demand", error 503). **Ask the AI** retries 5 times, 5 seconds apart, so a script can take up to a minute. If it still fails, send `/ad` again.
+22. **Clips sent quickly arrive out of order in the chat** ("Clip 1 saved", "Building", "Clip 2 saved"). The messages are out of order, the video is not: clips are joined by Telegram message number.
 
 ## 7. Useful commands
 

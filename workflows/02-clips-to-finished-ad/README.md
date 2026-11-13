@@ -47,8 +47,8 @@ curl -X POST http://localhost:5679/webhook/render-ad \
 
 ## Result
 
-<!-- TODO: replace with numbers from a real run with Flow clips -->
-- 3 placeholder clips to a finished 14.5-second ad: about 5 seconds of render time on a 16 GB laptop.
+- 3 real Google Veo clips, sent in Telegram, became a finished 30-second ad (1080x1920, 10 MB) in under a minute on a 16 GB laptop.
+- 3 placeholder clips to a finished 14.5-second ad: about 5 seconds of render time.
 - Zero time in a video editor.
 
 ## Settings used
