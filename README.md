@@ -62,7 +62,21 @@ Measured on the first real run (one laptop, free tiers, 2026-11-13):
 - Three raw Google Veo clips became a 30-second captioned, branded vertical ad in under a minute, without opening a video editor.
 - Every ad has a row in the content calendar with its status: `SCRIPTED` → `READY` → `APPROVED` → `POSTED`.
 
-Demo videos: _add links here_ · Screenshots: [docs/screenshots](docs/screenshots)
+### Sample output
+
+A real ad made by this pipeline. The script came from one Telegram message, the three clips were generated with Google Veo in Flow, and the bot joined them, added the captions and the end card.
+
+![Preview of the finished ad](docs/sample/ad-pandesal-preview.gif)
+
+![Four frames from the finished ad](docs/sample/ad-pandesal-frames.jpg)
+
+[Watch the full 30-second ad](docs/sample/ad-pandesal-full.mp4)
+
+The brief that produced it:
+
+```
+/ad Ube Cheese Pandesal | soft, baked fresh every morning | people who love premium pastries | English | luxurious, slow and elegant, no commentary, soft piano music only
+```
 
 ## Run it yourself
 
