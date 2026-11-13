@@ -1,7 +1,6 @@
 # 03 · Approve, Publish and Report
 
-![Workflow screenshot](../../docs/screenshots/03-approve-publish-report.png)
-<!-- TODO: screenshot of the workflow canvas, plus one of the weekly report in Telegram -->
+![The approve publish report workflow in n8n](../../docs/screenshots/03-approve-publish-report.jpg)
 
 ## Problem
 

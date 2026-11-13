@@ -1,7 +1,6 @@
 # 01 · Ad Brief to Script Pack
 
-![Workflow screenshot](../../docs/screenshots/01-ad-brief-to-script-pack.png)
-<!-- TODO: screenshot of the workflow canvas, plus one of the Telegram chat showing the script pack -->
+![The ad brief to script pack workflow in n8n](../../docs/screenshots/01-ad-brief-to-script-pack.jpg)
 
 ## Problem
 

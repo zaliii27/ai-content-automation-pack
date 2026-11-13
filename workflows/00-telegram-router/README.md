@@ -1,7 +1,6 @@
 # 00 · Telegram Router
 
-![Workflow screenshot](../../docs/screenshots/00-telegram-router.png)
-<!-- TODO: screenshot of the workflow canvas -->
+![The telegram router workflow in n8n](../../docs/screenshots/00-telegram-router.jpg)
 
 ## Problem
 

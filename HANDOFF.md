@@ -36,7 +36,7 @@ Updated 2026-11-13 after the first live run.
 Be honest about these in any status report.
 
 1. **Auto-posting to a channel (`PUBLISH_CHAT_ID`) has never run.**
-2. **No screenshots, no demo videos, no GitHub push yet.**
+2. **No demo videos.** Zali chose not to record them for this project; the scripts are in each workflow's `demo-script.md` if that changes. The repo is on GitHub, with a real finished ad in `docs/sample/` and one screenshot per workflow in `docs/screenshots/`. The screenshots are only 800 px wide, so node labels in workflows 02 and 03 are hard to read: retake them from a full-size browser window if you want them sharper.
 3. **"Result" sections** in the READMEs hold measurements from test runs, not from client use.
 4. **Sheet row `AD-4ABK9` says `REDO`** although its finished video exists at `files/out/AD-4ABK9.mp4`. It was approved, then Redo was tapped before the guard existed. Set its status back to `APPROVED` by hand if you want the report to count it.
 

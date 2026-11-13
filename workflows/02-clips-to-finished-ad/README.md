@@ -1,7 +1,6 @@
 # 02 · Clips to Finished Ad
 
-![Workflow screenshot](../../docs/screenshots/02-clips-to-finished-ad.png)
-<!-- TODO: screenshot of the workflow canvas, plus one frame of a finished ad -->
+![The clips to finished ad workflow in n8n](../../docs/screenshots/02-clips-to-finished-ad.jpg)
 
 ## Problem
 
